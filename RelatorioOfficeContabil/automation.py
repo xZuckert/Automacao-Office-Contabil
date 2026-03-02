@@ -1,152 +1,207 @@
-import time
-import pandas as pd
+from time import sleep
 from pywinauto import Application
+import pandas as pd
+import threading
+import time
 import os
+import json
+import ctypes
+from datetime import datetime
 
-delay = 0.25
 PARAR_AUTOMACAO = False
+DELAY = 0.2
+PASTA_LOG = None
+CHECKPOINT_FILE = None
 
-# Pega o mes e o ano do documento TXT
-def extrairMesAno(caminhoTXT):
-    nome = os.path.basename(caminhoTXT)
-    base = os.path.splitext(nome)[0]
+
+# CONEXÃO
+def conectarOffice():
+    try:
+        app = Application(backend="uia").connect(title_re="^Office Contábil")
+        janela = app.window(title_re="^Office Contábil")
+        return janela
+    except Exception:
+        raise Exception("Office Contábil não está aberto.")
+
+
+# LOG
+def registrarLog(msg):
+    global PASTA_LOG
+    if not PASTA_LOG:
+        return
+
+    caminho_log = os.path.join(PASTA_LOG, "log_automacao.txt")
+
+    with open(caminho_log, "a", encoding="utf-8") as log:
+        log.write(f"{datetime.now()} - {msg}\n")
+
+
+# BLOQUEIO INPUT
+def bloquearInput():
+    ctypes.windll.user32.BlockInput(True)
+
+def desbloquearInput():
+    ctypes.windll.user32.BlockInput(False)
+
+
+# PREPARAÇÃO AMBIENTE
+def prepararAmbiente(janela, caminhoExcel):
+
+    pasta = os.path.dirname(caminhoExcel)
+    codigoEmpresa = os.path.basename(pasta)
+
+    nomeArquivo = os.path.basename(caminhoExcel)
+    base = os.path.splitext(nomeArquivo)[0]
 
     mes = base[1:3]
     ano = base[3:7]
 
-    return mes, ano
-
-# Pega o codigo da empresa da pasta que esta o TXT
-def extrairCodEmpresa(caminhoTXT):
-    pasta = os.path.dirname(caminhoTXT)
-    return os.path.basename(pasta)
-
-# Conecta ao office contábil ja aberto
-def conectarOffice():
-    app = Application(backend="uia").connect(title_re="^Office Contábil")
-    janela = app.window(title_re="^Office Contábil")
+    janela.restore()
     janela.set_focus()
-    return janela
 
-# Lê o relatório excel
-def lerRelatorio(caminhoExcel):
-    df = pd.read_excel(caminhoExcel)
-    df = df[df["Dia"].notna()]
-    print(df)
-    print("Quantidade de linhas:", len(df))
-    return df
-
-def ativarEmpresa(janela, codigoEmpresa, mes, ano):
-    # ESC 5 vezes para fechar qualquer janela aberta no office
-    for i in range(5):
+    # Sai de qualquer tela
+    for _ in range(5):
         janela.type_keys("{ESC}")
-        time.sleep(delay)
+        sleep(0.2)
 
-    # Abrir Ativação de Empresa
-    janela.type_keys("E")
-    time.sleep(1)
+    janela.type_keys("E")  # Ativar empresa
+    sleep(0.5)
 
-    # Codigo da Empresa
     janela.type_keys(codigoEmpresa)
     janela.type_keys("{ENTER}")
 
-    # Mês/Ano
     janela.type_keys(f"{mes}{ano}")
     janela.type_keys("{ENTER}")
 
-    # Pular Digitador e Ativar
-    janela.type_keys("{TAB}")
+    janela.type_keys("{TAB}")  # pular digitador
     janela.type_keys("{ENTER}")
 
-    time.sleep(4)
+    sleep(0.5)
 
-    # Ir para Digitação
-    janela.type_keys("D")
-    time.sleep(1)
+    janela.type_keys("D")  # Digitação
+    sleep(0.5)
 
+
+# LANÇAMENTOS
 def lancarProvisao(janela, dia, valor, numero):
-    janela.type_keys("N") # Inicia novo lancamento
-    time.sleep(delay)
 
-    janela.type_keys("{TAB}") # Pula Lcto
+    janela.type_keys("N")
+    sleep(DELAY)
 
-    janela.type_keys(str(dia)) # Dia provisão
+    janela.type_keys("{TAB}")
+    janela.type_keys(str(dia))
     janela.type_keys("{ENTER}")
 
-    janela.type_keys("{TAB}") # Pula Hist.
+    janela.type_keys("{TAB}")
 
-    janela.type_keys("5") # Débito provisão
+    janela.type_keys("5")
     janela.type_keys("{ENTER}")
 
-    janela.type_keys("104") # Crédito provisão
+    janela.type_keys("104")
     janela.type_keys("{ENTER}")
 
-    janela.type_keys(str(valor)) #Valor provisão
+    janela.type_keys(str(valor))
     janela.type_keys("{ENTER}")
 
-    janela.type_keys(str(numero)) #Número das notas
-    janela.type_keys("{PGDN}") # Gravar
+    janela.type_keys(str(numero))
+    janela.type_keys("{PGDN}")
 
-    time.sleep(delay)
+    sleep(DELAY)
+
 
 def lancarPagamento(janela, dia, valor, numero):
-    janela.type_keys("N")  # Inicia novo lancamento
-    time.sleep(delay)
 
-    janela.type_keys("{TAB}")  # Pula Lcto
+    janela.type_keys("N")
+    sleep(DELAY)
 
-    janela.type_keys(str(dia))  # Dia pagamento
+    janela.type_keys("{TAB}")
+    janela.type_keys(str(dia))
     janela.type_keys("{ENTER}")
 
-    janela.type_keys("{TAB}")  # Pula Hist.
+    janela.type_keys("{TAB}")
 
-    janela.type_keys("1")  # Débito pagamento
+    janela.type_keys("1")
     janela.type_keys("{ENTER}")
 
-    janela.type_keys("5")  # Crédito pagamento
+    janela.type_keys("5")
     janela.type_keys("{ENTER}")
 
-    janela.type_keys(str(valor))  # Valor pagamento
+    janela.type_keys(str(valor))
     janela.type_keys("{ENTER}")
 
-    janela.type_keys(str(numero))  # Número das notas
-    janela.type_keys("{PGDN}")  # Gravar
+    janela.type_keys(str(numero))
+    janela.type_keys("{PGDN}")
 
-    time.sleep(delay)
+    sleep(DELAY)
 
-def executarAutomacao(caminhoTXT, caminhoExcel):
-    global PARAR_AUTOMACAO
+
+# EXECUÇÃO PRINCIPAL
+def executarAutomacao(caminhoExcel, progressCallback=None):
+
+    global PARAR_AUTOMACAO, PASTA_LOG, CHECKPOINT_FILE
+
     PARAR_AUTOMACAO = False
+    PASTA_LOG = os.path.dirname(caminhoExcel)
+    CHECKPOINT_FILE = os.path.join(PASTA_LOG, "checkpoint.json")
 
-    mes, ano = extrairMesAno(caminhoTXT)
-    codigoEmpresa = extrairCodEmpresa(caminhoTXT)
+    try:
 
-    df = lerRelatorio(caminhoExcel)
+        df = pd.read_excel(caminhoExcel)
+        df = df[df["Dia"].notna()]
 
-    janela = conectarOffice()
+        janela = conectarOffice()
+        prepararAmbiente(janela, caminhoExcel)
 
-    ativarEmpresa(janela, codigoEmpresa, mes, ano)
+        total = len(df)
 
-    for i, row in df.iterrows():
-        if PARAR_AUTOMACAO:
-            print("Automação interrompida")
-            break
+        # CHECKPOINT
+        indiceInicial = 0
 
-        janela.set_focus()
-        time.sleep(0.1)
-        dia = int(row["Dia"])
-        valor = float(row["valor contabil (R$)"])
-        numero = row["número"]
+        if os.path.exists(CHECKPOINT_FILE):
+            with open(CHECKPOINT_FILE, "r") as f:
+                indiceInicial = json.load(f).get("indice", 0)
 
-        lancarProvisao(janela, dia, valor, numero)
-        if PARAR_AUTOMACAO:
-            print("Automação interrompida")
-            break
+        bloquearInput()
 
-        janela.set_focus()
-        time.sleep(0.1)
-        lancarPagamento(janela, dia, valor, numero)
+        for i in range(indiceInicial, total):
 
+            if PARAR_AUTOMACAO:
+                registrarLog("Interrompido pelo usuário")
+                break
+
+            row = df.iloc[i]
+
+            dia = int(row["Dia"])
+            valor = float(row["valor contabil (R$)"])
+            numero = row["número"]
+
+            registrarLog(f"Lançando dia {dia}")
+
+            lancarProvisao(janela, dia, valor, numero)
+            lancarPagamento(janela, dia, valor, numero)
+
+            # Atualiza checkpoint
+            with open(CHECKPOINT_FILE, "w") as f:
+                json.dump({"indice": i + 1}, f)
+
+            if progressCallback:
+                progressCallback(i + 1, total)
+
+        # Se finalizou sem parar
+        if not PARAR_AUTOMACAO:
+            registrarLog("Automação finalizada com sucesso")
+            if os.path.exists(CHECKPOINT_FILE):
+                os.remove(CHECKPOINT_FILE)
+
+    except Exception as e:
+        registrarLog(f"Erro: {e}")
+        print("Erro na automação:", e)
+
+    finally:
+        desbloquearInput()
+
+
+# PARAR
 def pararAutomacao():
     global PARAR_AUTOMACAO
     PARAR_AUTOMACAO = True
