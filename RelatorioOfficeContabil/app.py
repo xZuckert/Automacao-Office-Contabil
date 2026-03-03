@@ -2,8 +2,8 @@ import os
 import tkinter as tk
 import threading
 from tkinter import filedialog, messagebox, ttk
-from reader import processarTXT
-from xlGenerator import gerarExcel
+from reader import processarSaida, processarServico, detectarTipoArquivo
+from xlGenerator import gerarExcelSaida, gerarExcelServico
 from automation import executarAutomacao, pararAutomacao
 
 
@@ -67,21 +67,27 @@ class RelatorioApp:
 
         try:
             # Processa TXT
-            grupos = processarTXT(self.caminhoTXT)
-
             pasta = os.path.dirname(self.caminhoTXT)
             nomeBase = os.path.splitext(os.path.basename(self.caminhoTXT))[0]
             caminhoExcel = os.path.join(pasta, f"{nomeBase}.xlsx")
 
-            # Gera Excel
-            gerarExcel(grupos, caminhoExcel)
+            # Detecta tipo automaticamente
+            tipo = detectarTipoArquivo(self.caminhoTXT)
+
+            # Processa e gera Excel conforme tipo
+            if tipo == "saida":
+                dados = processarSaida(self.caminhoTXT)
+                gerarExcelSaida(dados, caminhoExcel)
+            else:
+                dados = processarServico(self.caminhoTXT)
+                gerarExcelServico(dados, caminhoExcel)
 
             self.label_status.config(text="Executando...", fg="green")
 
             # Inicia automação em thread
             self.threadAutomacao = threading.Thread(
                 target=self.executarComTratamento,
-                args=(caminhoExcel,),
+                args=(caminhoExcel, tipo),
                 daemon=True
             )
             self.threadAutomacao.start()
@@ -90,9 +96,9 @@ class RelatorioApp:
             messagebox.showerror("Erro", str(e))
 
     # Wrapper de segurança para rodar a automação em um thread separada
-    def executarComTratamento(self, caminhoExcel):
+    def executarComTratamento(self, caminhoExcel, tipo):
         try: # Executa a automação
-            executarAutomacao(caminhoExcel, self.atualizarProgresso)
+            executarAutomacao(caminhoExcel, tipo, self.atualizarProgresso)
         except Exception as e: # Captura erros
             self.root.after(0, lambda:
                 messagebox.showerror("Erro na Automação", str(e)))

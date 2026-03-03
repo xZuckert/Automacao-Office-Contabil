@@ -1,17 +1,26 @@
 from time import sleep
 from pywinauto import Application
 import pandas as pd
-import threading
-import time
 import os
 import json
 import ctypes
 from datetime import datetime
+from reader import detectarTipoArquivo
 
 PARAR_AUTOMACAO = False
 DELAY = 0.2
 PASTA_LOG = None
 CHECKPOINT_FILE = None
+CONFIG_LANCAMENTOS = {
+    "saida": {
+        "provisao": {"deb": 5, "cred": 104},
+        "pagamento": {"deb": 1, "cred": 5}
+    },
+    "servico": {
+        "provisao": {"deb": 5, "cred": 377},
+        "pagamento": {"deb": 1, "cred": 5}
+    }
+}
 
 
 # CONEXÃO
@@ -53,14 +62,13 @@ def prepararAmbiente(janela, caminhoExcel):
     nomeArquivo = os.path.basename(caminhoExcel)
     base = os.path.splitext(nomeArquivo)[0]
 
-    mes = base[1:3]
-    ano = base[3:7]
+    mes = base[-6:-4]
+    ano = base[-4:]
 
-    janela.restore()
     janela.set_focus()
 
     # Sai de qualquer tela
-    for _ in range(5):
+    for i in range(5):
         janela.type_keys("{ESC}")
         sleep(0.2)
 
@@ -83,7 +91,7 @@ def prepararAmbiente(janela, caminhoExcel):
 
 
 # LANÇAMENTOS
-def lancarProvisao(janela, dia, valor, numero):
+def lancamento(janela, dia, valor, numero, debito, credito):
 
     janela.type_keys("N")
     sleep(DELAY)
@@ -94,36 +102,10 @@ def lancarProvisao(janela, dia, valor, numero):
 
     janela.type_keys("{TAB}")
 
-    janela.type_keys("5")
+    janela.type_keys(str(debito))
     janela.type_keys("{ENTER}")
 
-    janela.type_keys("104")
-    janela.type_keys("{ENTER}")
-
-    janela.type_keys(str(valor))
-    janela.type_keys("{ENTER}")
-
-    janela.type_keys(str(numero))
-    janela.type_keys("{PGDN}")
-
-    sleep(DELAY)
-
-
-def lancarPagamento(janela, dia, valor, numero):
-
-    janela.type_keys("N")
-    sleep(DELAY)
-
-    janela.type_keys("{TAB}")
-    janela.type_keys(str(dia))
-    janela.type_keys("{ENTER}")
-
-    janela.type_keys("{TAB}")
-
-    janela.type_keys("1")
-    janela.type_keys("{ENTER}")
-
-    janela.type_keys("5")
+    janela.type_keys(str(credito))
     janela.type_keys("{ENTER}")
 
     janela.type_keys(str(valor))
@@ -133,20 +115,25 @@ def lancarPagamento(janela, dia, valor, numero):
     janela.type_keys("{PGDN}")
 
     sleep(DELAY)
-
 
 # EXECUÇÃO PRINCIPAL
-def executarAutomacao(caminhoExcel, progressCallback=None):
+def executarAutomacao(caminhoExcel, tipo, progressCallback=None):
 
     global PARAR_AUTOMACAO, PASTA_LOG, CHECKPOINT_FILE
-
     PARAR_AUTOMACAO = False
     PASTA_LOG = os.path.dirname(caminhoExcel)
     CHECKPOINT_FILE = os.path.join(PASTA_LOG, "checkpoint.json")
 
     try:
-
         df = pd.read_excel(caminhoExcel)
+
+        config = CONFIG_LANCAMENTOS[tipo]
+
+        debProv = config["provisao"]["deb"]
+        credProv = config["provisao"]["cred"]
+
+        debPag = config["pagamento"]["deb"]
+        credPag = config["pagamento"]["cred"]
         df = df[df["Dia"].notna()]
 
         janela = conectarOffice()
@@ -177,8 +164,8 @@ def executarAutomacao(caminhoExcel, progressCallback=None):
 
             registrarLog(f"Lançando dia {dia}")
 
-            lancarProvisao(janela, dia, valor, numero)
-            lancarPagamento(janela, dia, valor, numero)
+            lancamento(janela, dia, valor, numero, debProv, credProv) # Provisão
+            lancamento(janela, dia, valor, numero, debPag, credPag) # Pagamento
 
             # Atualiza checkpoint
             with open(CHECKPOINT_FILE, "w") as f:
@@ -199,7 +186,6 @@ def executarAutomacao(caminhoExcel, progressCallback=None):
 
     finally:
         desbloquearInput()
-
 
 # PARAR
 def pararAutomacao():

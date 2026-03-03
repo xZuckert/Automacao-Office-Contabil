@@ -1,10 +1,11 @@
 import re
+import os
 from collections import defaultdict
 
 cfopValid = {"5.102", "6.102", "5.405", "6.405"} #CFOPs de saida que devem ser leançados
 
 #compila a linha em tipo, serie, numero, dia, uf, valor e CFOP, ficando assim: |NFCE|1|000123|05|SP| 1.234,56 | ... |5.102|
-padrao = re.compile(
+padraoSaida = re.compile(
     r'\|(?P<tipo>NFCE|NFE)\s*\|'
     r'(?P<serie>\d+)\s*\|'
     r'(?P<numero>\d+)\|'
@@ -17,7 +18,17 @@ padrao = re.compile(
 def converterValor(valorString):
     return float(valorString.replace('.', '').replace(',', '.')) #converte "1.234,56" em 1234,56
 
-def processarTXT(caminhoArquivo):
+def detectarTipoArquivo(caminhoArquivo):
+    nome = os.path.basename(caminhoArquivo).upper()
+
+    if nome.startswith("S"):
+        return "saida"
+    elif nome.startswith("I51"):
+        return "servico"
+    else:
+        raise Exception("Tipo de arquivo não reconhecido.")
+
+def processarSaida(caminhoArquivo):
     grupos = defaultdict(lambda: {
         "min": None,
         "max": None,
@@ -25,7 +36,7 @@ def processarTXT(caminhoArquivo):
     })
     with open(caminhoArquivo, "r", encoding="latin-1", errors="ignore") as f: #abre o txt e aplica o compilamento padrao em cada linha
         for linha in f:
-            match = padrao.search(linha)
+            match = padraoSaida.search(linha)
             if not match:
                 continue
 
@@ -50,3 +61,44 @@ def processarTXT(caminhoArquivo):
 
             grupos[chave]["total"] += valor #faz a soma de todas as notas do grupo
     return grupos
+
+def processarServico(caminhoArquivo):
+
+    linhas = []
+
+    with open(caminhoArquivo, "r", encoding="latin-1", errors="ignore") as f:
+        for linha in f:
+
+            # Só processa linhas que começam com "|"
+            if not linha.startswith("|"):
+                continue
+
+            partes = linha.split("|")
+
+            # Espera pelo menos 5 colunas
+            if len(partes) < 5:
+                continue
+
+            dia = partes[1].strip()
+            numero = partes[3].strip()
+            baseCalculo = partes[4].strip()
+
+            # Ignora cabeçalho e linhas vazias
+            if not dia.isdigit():
+                continue
+
+            if not numero.isdigit():
+                continue
+
+            if baseCalculo == "":
+                continue
+
+            valor = converterValor(baseCalculo)
+
+            linhas.append({
+                "Dia": int(dia),
+                "número": int(numero),
+                "valor contabil (R$)": round(valor, 2)
+            })
+
+    return linhas
