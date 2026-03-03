@@ -2,9 +2,9 @@ import os
 import tkinter as tk
 import threading
 from tkinter import filedialog, messagebox, ttk
-from reader import processarSaida, processarServico, detectarTipoArquivo
-from xlGenerator import gerarExcelSaida, gerarExcelServico
-from automation import executarAutomacao, pararAutomacao
+from .reader import processarSaida, processarServico, detectarTipoArquivo
+from .xlGenerator import gerarExcelSaida, gerarExcelServico
+from .automation import executarAutomacao, pararAutomacao
 
 
 class RelatorioApp:

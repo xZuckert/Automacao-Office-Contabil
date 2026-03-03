@@ -1,3 +1,5 @@
+.env
+
 # Evitar versionar artefatos
 __pycache__/
 *.pyc
