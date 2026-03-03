@@ -2,6 +2,7 @@ import re
 import os
 from collections import defaultdict
 
+
 cfopValid = {"5.102", "6.102", "5.405", "6.405"} #CFOPs de saida que devem ser leançados
 
 #compila a linha em tipo, serie, numero, dia, uf, valor e CFOP, ficando assim: |NFCE|1|000123|05|SP| 1.234,56 | ... |5.102|

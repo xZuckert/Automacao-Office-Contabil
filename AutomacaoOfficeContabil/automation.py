@@ -5,7 +5,7 @@ import os
 import json
 import ctypes
 from datetime import datetime
-from reader import detectarTipoArquivo
+
 
 PARAR_AUTOMACAO = False
 DELAY = 0.2

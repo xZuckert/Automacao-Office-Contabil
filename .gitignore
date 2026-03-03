@@ -1,0 +1,14 @@
+# Evitar versionar artefatos
+__pycache__/
+*.pyc
+
+# Pycharm
+.idea/
+
+# executavel
+build/
+dist/
+*.spec
+
+# logs
+*.log

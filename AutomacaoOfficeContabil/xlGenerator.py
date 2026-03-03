@@ -2,6 +2,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
 from openpyxl.worksheet.table import Table, TableStyleInfo
 
+
 def gerarExcelSaida(grupos, nome_saida="Relatorio.xlsx"):
     # cria a planilha na memoria seleciona a planilha ativa e renomeia
     wb = Workbook()
