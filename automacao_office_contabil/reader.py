@@ -12,8 +12,8 @@ padraoSaida = re.compile(
     r'(?P<numero>\d+)\|'
     r'(?P<dia>\d{2})\s*\|'
     r'(?P<uf>[A-Z]{2})\|'
-    r'\s*(?P<valor>[\d\.,]+)\|.*\|'
-    r'\s*(?P<cfop>\d\.\d{3})'
+    r'\s*(?P<valor>[\d\.,]+)\|'
+    r'\s*\|(?P<cfop>\d\.\d{3})'
 )
 
 def converterValor(valorString):
