@@ -26,8 +26,8 @@ CONFIG_LANCAMENTOS = {
 # CONEXÃO
 def conectarOffice():
     try:
-        app = Application(backend="uia").connect(title_re="^Office Contábil")
-        janela = app.window(title_re="^Office Contábil")
+        app = Application(backend="uia").connect(title_re="^IOB Office Contábil")
+        janela = app.window(title_re="^IOB Office Contábil")
         return janela
     except Exception:
         raise Exception("Office Contábil não está aberto.")
